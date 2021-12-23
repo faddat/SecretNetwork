@@ -1,0 +1,35 @@
+[package]
+name = "enclave_contract_engine"
+version = "1.2.4"
+authors = ["Cashmaney <itzik@enigma.co>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+sgx_tstd = { rev = "a37ffb9449ba6d5b6e4a9d586bbab864ae732269", git = "https://github.com/apache/teaclave-sgx-sdk.git", features = [
+  "backtrace"
+] }
+sgx_types = { rev = "a37ffb9449ba6d5b6e4a9d586bbab864ae732269", git = "https://github.com/apache/teaclave-sgx-sdk.git" }
+log = "0.4.14"
+enclave_crypto = { path = "../enclave-crypto" }
+enclave-ffi-types = { path = "../../enclave-ffi-types" }
+enclave_cosmos_types = { path = "../enclave-cosmos-types" }
+enclave_cosmwasm_types = { path = "../enclave-cosmwasm-types" }
+enclave_utils = { path = "../enclave-utils" }
+pwasm-utils = { version = "0.12.0", default-features = false }
+parity-wasm = { version = "0.41.0", default-features = false }
+lru = { version = "0.6", default-features = false }
+serde = { rev = "db0226f1d5d70fca6b96af2c285851502204e21c", git = "https://github.com/mesalock-linux/serde-sgx", features = ["derive"] }
+serde_json = { rev = "380893814ad2a057758d825bab798aa117f7362a",  git = "https://github.com/mesalock-linux/serde-json-sgx" }
+
+base64 = { rev = "dc7389e10817b078f289386b3b6a852ab6c4c021", git = "https://github.com/mesalock-linux/rust-base64-sgx" }
+sha2 = "0.8.1"
+bech32 = "0.7.2"
+
+
+[dependencies.wasmi]
+git = "https://github.com/paritytech/wasmi"
+rev = "84d2764594d80425373bf4949a58fa3df3d624c3"
+default-features = false
+features = ["core"]

@@ -1,0 +1,25 @@
+[package]
+name = "enclave_cosmos_types"
+version = "1.2.4"
+authors = ["Cashmaney <itzik@enigma.co>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+#[features]
+#SGX = []
+#default = ["prost"]
+
+[dependencies]
+serde = { git = "https://github.com/mesalock-linux/serde-sgx", features = ["derive"] }
+
+protobuf = "2.25.2"
+enclave-ffi-types = { path = "../../enclave-ffi-types" }
+log = "0.4.14"
+enclave_crypto = { path = "../enclave-crypto" }
+cosmwasm_proto = { path = "../../cosmwasm-proto" }
+derive_more = "0.99"
+enclave_cosmwasm_types = { path = "../enclave-cosmwasm-types" }
+sha2 = "0.8.1"
+
+prost = {git = "https://github.com/mesalock-linux/prost-sgx", rev = "cd3103a6d45cf7a43b6c1c5e4223428097d1c547",default-features = false,  features = ["prost-derive"]}

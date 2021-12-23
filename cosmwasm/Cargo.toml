@@ -1,3 +1,12 @@
 [workspace]
-members = ["packages/cosmwasm-proto"]
+members = [
+  "packages/enclave-ffi-types",
+  "packages/schema",
+  "packages/sgx-vm",
+  "packages/shared/*",
+  "packages/std",
+  "packages/storage",
+  "packages/enclaves/query",
+  "packages/cosmwasm-proto",
+]
 exclude = ["contracts", "packages/wasmi-runtime", "packages/enclave-test"]

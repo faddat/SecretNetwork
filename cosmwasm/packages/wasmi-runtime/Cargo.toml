@@ -81,6 +81,8 @@ rand_core = { git = "https://github.com/mesalock-linux/rand-sgx", default-featur
 ] }
 zeroize = { rev = "b8488228e3fdacbfdb3ea8a6117919871637d111", git = "https://github.com/enigmampc/zeroize" }
 
+
+
 [dependencies.prost]
 git = "https://github.com/mesalock-linux/prost-sgx"
 rev = "cd3103a6d45cf7a43b6c1c5e4223428097d1c547"

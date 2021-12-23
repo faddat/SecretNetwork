@@ -11,6 +11,7 @@ mod protobuf {
 
 #[cfg(feature = "build-protobuf")]
 mod protobuf {
+    use protoc_rust::Customize;
     use std::{
         fs,
         path::{Path, PathBuf},
@@ -27,7 +28,10 @@ mod protobuf {
         let protoc_err_msg = "protoc failed to generate protobuf parsers";
 
         let directories: &[(&str, &[&str])] = &[
-            ("src/proto/base", &["../../../third_party/proto/cosmos/base/v1beta1/coin.proto"]),
+            (
+                "src/proto/base",
+                &["../../../third_party/proto/cosmos/base/v1beta1/coin.proto"],
+            ),
             (
                 "src/proto/crypto/multisig",
                 &[
@@ -60,8 +64,6 @@ mod protobuf {
             ),
         ];
 
-        let main_proto_dir = out_dir();
-
         for (out_dir, inputs) in directories {
             let dir_err_msg = format!("failed to generate directory {:?}", out_dir);
             std::fs::create_dir_all(*out_dir).expect(&dir_err_msg);
@@ -71,6 +73,9 @@ mod protobuf {
                 .include("../../../third_party/proto/")
                 .out_dir(*out_dir)
                 .inputs(*inputs)
+                .customize(Customize {
+                    ..Default::default()
+                })
                 .run()
                 .expect(protoc_err_msg);
 
@@ -90,4 +95,3 @@ mod protobuf {
         }
     }
 }
-
