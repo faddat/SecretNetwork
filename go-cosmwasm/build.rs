@@ -11,7 +11,7 @@ fn main() {
 
     println!("cargo:rustc-link-search=native=./lib");
     println!("cargo:rustc-link-lib=static=Enclave_u");
-
+    println!("cargo:rustc-link-lib=static=QueryEnclave_u");
     // println!("cargo:rustc-link-lib=dylib=sgx_uae_service");
 
     println!("cargo:rustc-link-search=native={}/lib64", sdk_dir);

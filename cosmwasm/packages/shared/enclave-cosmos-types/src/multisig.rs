@@ -97,7 +97,7 @@ impl VerifyingKey for MultisigThresholdPubKey {
     fn verify_bytes(&self, bytes: &[u8], sig: &[u8]) -> Result<(), CryptoError> {
         debug!("verifying multisig");
         trace!("Sign bytes are: {:?}", bytes);
-        let signatures = decode_multisig_signature(sig)?;
+        let signatures = decode_multisig_signature(sig).map_err(|_| CryptoError::ParsingError)?;
 
         if signatures.len() < self.threshold as usize {
             warn!(

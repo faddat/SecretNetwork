@@ -30,6 +30,7 @@ where
     gas_limit: u64,
     used_gas: u64,
     enclave: EnclaveGuard,
+    query_enclave: EnclaveGuard,
     ctx: Ctx,
     finalizer: fn(*mut c_void),
 
@@ -47,6 +48,7 @@ where
         bytecode: Vec<u8>,
         gas_limit: u64,
         enclave: EnclaveGuard,
+        query_enclave: EnclaveGuard,
         (data, finalizer): (*mut c_void, fn(*mut c_void)),
     ) -> Self {
         // TODO add validation of this bytecode?
@@ -59,6 +61,7 @@ where
             gas_limit,
             used_gas: 0,
             enclave,
+            query_enclave,
             ctx,
             finalizer,
             type_storage: Default::default(),
@@ -184,15 +187,15 @@ where
             "query() called with env: {:?} msg: {:?} enclave_id: {:?}",
             String::from_utf8_lossy(env),
             String::from_utf8_lossy(msg),
-            self.enclave.geteid()
+            self.query_enclave.geteid()
         );
 
         let mut query_result = MaybeUninit::<QueryResult>::uninit();
         let mut used_gas = 0_u64;
 
         let status = unsafe {
-            imports::ecall_query(
-                self.enclave.geteid(),
+            imports::ecall_query_qe(
+                self.query_enclave.geteid(),
                 query_result.as_mut_ptr(),
                 self.ctx.unsafe_clone(),
                 self.gas_left(),

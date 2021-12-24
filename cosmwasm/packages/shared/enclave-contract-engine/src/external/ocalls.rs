@@ -4,13 +4,13 @@ use enclave_ffi_types::{Ctx, EnclaveBuffer, OcallReturn, UntrustedVmError, UserS
 use sgx_types::*;
 
 extern "C" {
-    pub fn ocall_allocate(
+    pub fn ocall_allocate_qe(
         retval: *mut UserSpaceBuffer,
         buffer: *const u8,
         length: usize,
     ) -> sgx_status_t;
 
-    pub fn ocall_read_db(
+    pub fn ocall_read_db_qe(
         retval: *mut OcallReturn,
         context: Ctx,
         vm_error: *mut UntrustedVmError,
@@ -20,7 +20,7 @@ extern "C" {
         key_len: usize,
     ) -> sgx_status_t;
 
-    pub fn ocall_query_chain(
+    pub fn ocall_query_chain_qe(
         retval: *mut OcallReturn,
         context: Ctx,
         vm_error: *mut UntrustedVmError,
@@ -31,6 +31,7 @@ extern "C" {
         query_len: usize,
     ) -> sgx_status_t;
 
+    #[cfg(not(feature = "query-only"))]
     pub fn ocall_remove_db(
         retval: *mut OcallReturn,
         context: Ctx,
@@ -40,6 +41,7 @@ extern "C" {
         key_len: usize,
     ) -> sgx_status_t;
 
+    #[cfg(not(feature = "query-only"))]
     pub fn ocall_write_db(
         retval: *mut OcallReturn,
         context: Ctx,
@@ -52,6 +54,7 @@ extern "C" {
     ) -> sgx_status_t;
 }
 
+#[cfg(not(feature = "query-only"))]
 extern "C" {
     pub fn ocall_sgx_init_quote(
         ret_val: *mut sgx_status_t,

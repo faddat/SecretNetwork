@@ -51,17 +51,22 @@ App_SRC_Files := $(shell find ../cosmwasm/packages/sgx-vm/ -type f -name '*.rs')
 App_Include_Paths := -I./ -I./include -I$(SGX_SDK)/include -I$(CUSTOM_EDL_PATH)
 App_C_Flags := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(App_Include_Paths)
 
+Query_Enclave_Path := ../cosmwasm/packages/enclaves/query/
 Enclave_Path := ../cosmwasm/packages/wasmi-runtime
 Enclave_EDL_Products := Enclave_u.c Enclave_u.h
+Query_Enclave_EDL_Products := Query_Enclave_u.c Query_Enclave_u.h
 
 all: build test
 
 build: build-rust build-go
 
-build-rust: librust_cosmwasm_enclave.signed.so lib/libEnclave_u.a
+build-rust: librust_cosmwasm_enclave.signed.so query_enclave lib/libEnclave_u.a lib/libQueryEnclave_u.a
 	cargo build -Z unstable-options --profile $(BUILD_PROFILE) --features "$(FEATURES_U)"
 	cp target/$(BUILD_PROFILE)/libgo_cosmwasm.$(DLL_EXT) api
 	@ #this pulls out ELF symbols, 80% size reduction!
+
+query_enclave: build-query_enclave
+	cp ../cosmwasm/packages/enclaves/query/librust_cosmwasm_query_enclave.signed.so ./
 
 librust_cosmwasm_enclave.signed.so: build-enclave
 	cp ../cosmwasm/packages/wasmi-runtime/librust_cosmwasm_enclave.signed.so ./
@@ -76,6 +81,14 @@ lib/libEnclave_u.a: $(Enclave_Path)/Enclave.edl target/headers/enclave-ffi-types
 	mkdir -p lib
 	$(AR) rcsD $@ Enclave_u.o
 
+lib/libQueryEnclave_u.a: $(Query_Enclave_Path)/Enclave.edl build-enclave
+	mkdir -p query_enclave
+	sgx_edger8r --use-prefix --untrusted $< --search-path $(SGX_SDK)/include --search-path $(CUSTOM_EDL_PATH) --untrusted-dir ./query_enclave
+	$(CC) $(App_C_Flags) -c ./query_enclave/Enclave_u.c -o ./Query_Enclave_u.o
+	rm ./query_enclave/Enclave_u.c
+	$(AR) rcsD $@ Query_Enclave_u.o
+	rm -rf query_enclave
+
 # This file gets generated whenever we build this crate, because enclave-ffi-types is our dependency
 # but when running the build for the first time, there's an interdependency between the .edl which requires this
 # header, and the crate which needs the objects generated from the .edl file to correctly compile.
@@ -87,6 +100,9 @@ target/headers/enclave-ffi-types.h: build-enclave
 .PHONY: build-enclave
 build-enclave:
 	FEATURES="$(FEATURES)" $(MAKE) -C $(Enclave_Path) enclave
+
+build-query_enclave:
+	FEATURES="$(FEATURES)" $(MAKE) -C $(Query_Enclave_Path) enclave
 
 # implement stripping based on os
 ifeq ($(DLL_EXT),so)
@@ -144,7 +160,7 @@ test-alpine:
 
 .PHONY: clean
 clean:
-	rm -rf lib $(Enclave_EDL_Products) *.o *.so
+	rm -rf lib $(Enclave_EDL_Products) $(Query_Enclave_EDL_Products) *.o *.so
 	cargo clean
 
 .PHONY: clean-all

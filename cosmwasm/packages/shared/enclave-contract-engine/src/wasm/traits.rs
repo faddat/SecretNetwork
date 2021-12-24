@@ -4,8 +4,10 @@ use wasmi::{RuntimeValue, Trap};
 pub trait WasmiApi {
     fn read_db_index(&mut self, state_key_ptr_ptr: i32) -> Result<Option<RuntimeValue>, Trap>;
 
+    #[cfg(not(feature = "query-only"))]
     fn remove_db_index(&mut self, state_key_ptr_ptr: i32) -> Result<Option<RuntimeValue>, Trap>;
 
+    #[cfg(not(feature = "query-only"))]
     fn write_db_index(
         &mut self,
         state_key_ptr_ptr: i32,

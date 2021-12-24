@@ -2,13 +2,24 @@ use enclave_ffi_types::{Ctx, EnclaveBuffer, OcallReturn, UntrustedVmError, UserS
 use std::ffi::c_void;
 
 use crate::context::{with_querier_from_context, with_storage_from_context};
-use crate::enclave::allocate_enclave_buffer;
+use crate::enclave::{allocate_enclave_buffer, allocate_enclave_buffer_qe};
 use crate::{Querier, Storage, VmError, VmResult};
 use cosmwasm_std::{Binary, StdResult, SystemResult};
 
 /// Copy a buffer from the enclave memory space, and return an opaque pointer to it.
 #[no_mangle]
 pub extern "C" fn ocall_allocate(buffer: *const u8, length: usize) -> UserSpaceBuffer {
+    let slice = unsafe { std::slice::from_raw_parts(buffer, length) };
+    let vector_copy = slice.to_vec();
+    let boxed_vector = Box::new(vector_copy);
+    let heap_pointer = Box::into_raw(boxed_vector);
+    UserSpaceBuffer {
+        ptr: heap_pointer as *mut c_void,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ocall_allocate_qe(buffer: *const u8, length: usize) -> UserSpaceBuffer {
     let slice = unsafe { std::slice::from_raw_parts(buffer, length) };
     let vector_copy = slice.to_vec();
     let boxed_vector = Box::new(vector_copy);
@@ -70,6 +81,50 @@ pub extern "C" fn ocall_read_db(
         .unwrap_or(OcallReturn::Panic)
 }
 
+#[no_mangle]
+pub extern "C" fn ocall_read_db_qe(
+    context: Ctx,
+    vm_error: *mut UntrustedVmError,
+    gas_used: *mut u64,
+    value: *mut EnclaveBuffer,
+    key: *const u8,
+    key_len: usize,
+) -> OcallReturn {
+    let key = unsafe { std::slice::from_raw_parts(key, key_len) };
+
+    let implementation = unsafe { get_implementations_from_context(&context).read_db };
+
+    std::panic::catch_unwind(|| implementation(context, key))
+        // Get either an error(`OcallReturn`), or a response(`EnclaveBuffer`)
+        // which will be converted to a success status.
+        .map(|result| -> Result<EnclaveBuffer, OcallReturn> {
+            match result {
+                Ok((value, gas_cost)) => {
+                    unsafe { *gas_used = gas_cost };
+                    value
+                        .map(|val| {
+                            allocate_enclave_buffer_qe(&val).map_err(|_| OcallReturn::Failure)
+                        })
+                        .unwrap_or_else(|| Ok(EnclaveBuffer::default()))
+                }
+                Err(err) => {
+                    unsafe { store_vm_error(err, vm_error) };
+                    Err(OcallReturn::Failure)
+                }
+            }
+        })
+        // Return the result or report the error
+        .map(|result| match result {
+            Ok(enclave_buffer) => {
+                unsafe { *value = enclave_buffer };
+                OcallReturn::Success
+            }
+            Err(err) => err,
+        })
+        // This will happen only when `catch_unwind` returns `Err`, which indicates a caught panic
+        .unwrap_or(OcallReturn::Panic)
+}
+
 /// Read a key from the contracts key-value store.
 #[no_mangle]
 pub extern "C" fn ocall_query_chain(
@@ -98,6 +153,55 @@ pub extern "C" fn ocall_query_chain(
 
                     crate::serde::to_vec(&system_result)
                         .map(|val| allocate_enclave_buffer(&val).map_err(|_| OcallReturn::Failure))
+                        .unwrap_or_else(|_| Ok(EnclaveBuffer::default()))
+                }
+                Err(err) => {
+                    unsafe { store_vm_error(err, vm_error) };
+                    Err(OcallReturn::Failure)
+                }
+            }
+        })
+        // Return the result or report the error
+        .map(|result| match result {
+            Ok(enclave_buffer) => {
+                unsafe { *value = enclave_buffer };
+                OcallReturn::Success
+            }
+            Err(err) => err,
+        })
+        // This will happen only when `catch_unwind` returns `Err`, which indicates a caught panic
+        .unwrap_or(OcallReturn::Panic)
+}
+
+#[no_mangle]
+pub extern "C" fn ocall_query_chain_qe(
+    context: Ctx,
+    vm_error: *mut UntrustedVmError,
+    gas_used: *mut u64,
+    gas_limit: u64,
+    value: *mut EnclaveBuffer,
+    query: *const u8,
+    query_len: usize,
+) -> OcallReturn {
+    let query = unsafe { std::slice::from_raw_parts(query, query_len) };
+
+    let implementation = unsafe { get_implementations_from_context(&context).query_chain };
+
+    std::panic::catch_unwind(|| implementation(context, query, gas_limit))
+        // Get either an error(`OcallReturn`), or a response(`EnclaveBuffer`)
+        // which will be converted to a success status.
+        .map(|answer| -> Result<EnclaveBuffer, OcallReturn> {
+            match answer {
+                Ok((system_result, gas_cost)) => {
+                    unsafe { *gas_used = gas_cost };
+
+                    // wasm code expects to get this as Result<Result<Binary, StdError>, SystemError> which is called SystemResult
+                    // see CosmWasm's implementation https://github.com/enigmampc/SecretNetwork/blob/508e99c990dd656eb61f456584dab054487ba178/cosmwasm/packages/sgx-vm/src/imports.rs#L124
+
+                    crate::serde::to_vec(&system_result)
+                        .map(|val| {
+                            allocate_enclave_buffer_qe(&val).map_err(|_| OcallReturn::Failure)
+                        })
                         .unwrap_or_else(|_| Ok(EnclaveBuffer::default()))
                 }
                 Err(err) => {

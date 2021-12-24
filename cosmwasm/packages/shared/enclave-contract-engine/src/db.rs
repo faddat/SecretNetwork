@@ -1,6 +1,6 @@
 use super::contract_validation::ContractKey;
 use super::errors::WasmEngineError;
-use crate::{exports, imports};
+use crate::external::{ecalls, ocalls};
 use enclave_crypto::{sha_256, AESKey, Kdf, SIVEncryptable, KEY_MANAGER};
 
 use enclave_ffi_types::{Ctx, EnclaveBuffer, OcallReturn, UntrustedVmError};
@@ -8,6 +8,7 @@ use enclave_ffi_types::{Ctx, EnclaveBuffer, OcallReturn, UntrustedVmError};
 use log::*;
 use sgx_types::sgx_status_t;
 
+#[cfg(not(feature = "query-only"))]
 pub fn write_encrypted_key(
     key: &[u8],
     value: &[u8],
@@ -70,6 +71,7 @@ pub fn read_encrypted_key(
     }
 }
 
+#[cfg(not(feature = "query-only"))]
 pub fn remove_encrypted_key(
     key: &[u8],
     context: &Ctx,
@@ -105,7 +107,7 @@ fn read_db(context: &Ctx, key: &[u8]) -> Result<(Option<Vec<u8>>, u64), WasmEngi
     let mut vm_err = UntrustedVmError::default();
     let mut gas_used = 0_u64;
     let value = unsafe {
-        let status = imports::ocall_read_db(
+        let status = ocalls::ocall_read_db_qe(
             (&mut ocall_return) as *mut _,
             context.unsafe_clone(),
             (&mut vm_err) as *mut _,
@@ -128,7 +130,7 @@ fn read_db(context: &Ctx, key: &[u8]) -> Result<(Option<Vec<u8>>, u64), WasmEngi
         match ocall_return {
             OcallReturn::Success => {
                 let enclave_buffer = enclave_buffer.assume_init();
-                exports::recover_buffer(enclave_buffer)?
+                ecalls::recover_buffer(enclave_buffer)?
             }
             OcallReturn::Failure => {
                 return Err(WasmEngineError::FailedOcall(vm_err));
@@ -140,13 +142,14 @@ fn read_db(context: &Ctx, key: &[u8]) -> Result<(Option<Vec<u8>>, u64), WasmEngi
     Ok((value, gas_used))
 }
 
+#[cfg(not(feature = "query-only"))]
 /// Safe wrapper around reads from the contract storage
 fn remove_db(context: &Ctx, key: &[u8]) -> Result<u64, WasmEngineError> {
     let mut ocall_return = OcallReturn::Success;
     let mut vm_err = UntrustedVmError::default();
     let mut gas_used = 0_u64;
     match unsafe {
-        imports::ocall_remove_db(
+        ocalls::ocall_remove_db(
             (&mut ocall_return) as *mut _,
             context.unsafe_clone(),
             (&mut vm_err) as *mut _,
@@ -166,13 +169,14 @@ fn remove_db(context: &Ctx, key: &[u8]) -> Result<u64, WasmEngineError> {
     }
 }
 
+#[cfg(not(feature = "query-only"))]
 /// Safe wrapper around writes to the contract storage
 fn write_db(context: &Ctx, key: &[u8], value: &[u8]) -> Result<u64, WasmEngineError> {
     let mut ocall_return = OcallReturn::Success;
     let mut vm_err = UntrustedVmError::default();
     let mut gas_used = 0_u64;
     match unsafe {
-        imports::ocall_write_db(
+        ocalls::ocall_write_db(
             (&mut ocall_return) as *mut _,
             context.unsafe_clone(),
             (&mut vm_err) as *mut _,

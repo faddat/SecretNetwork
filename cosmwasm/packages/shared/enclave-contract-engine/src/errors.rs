@@ -3,7 +3,7 @@ use enclave_ffi_types::{EnclaveError, UntrustedVmError};
 use log::*;
 use wasmi::{Error as InterpreterError, HostError, TrapKind};
 
-use crate::exports::BufferRecoveryError;
+use crate::external::ecalls::BufferRecoveryError;
 
 #[derive(Debug, Display)]
 #[non_exhaustive]

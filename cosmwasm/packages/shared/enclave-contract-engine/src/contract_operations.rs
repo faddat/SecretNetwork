@@ -3,7 +3,8 @@ use log::*;
 use enclave_cosmos_types::types::{ContractCode, SigInfo};
 use enclave_crypto::Ed25519PublicKey;
 use enclave_ffi_types::{Ctx, EnclaveError};
-use enclave_utils::macros::coalesce;
+
+use enclave_utils::coalesce;
 
 use enclave_cosmwasm_types::encoding::Binary;
 use enclave_cosmwasm_types::types::{CanonicalAddr, Env};

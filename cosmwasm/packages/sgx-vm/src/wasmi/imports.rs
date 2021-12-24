@@ -12,6 +12,13 @@ extern "C" {
         length: usize,
     ) -> sgx_status_t;
 
+    pub fn ecall_allocate_qe(
+        eid: sgx_enclave_id_t,
+        retval: *mut EnclaveBuffer,
+        buffer: *const u8,
+        length: usize,
+    ) -> sgx_status_t;
+
     /// Trigger the init method in a wasm contract
     pub fn ecall_init(
         eid: sgx_enclave_id_t,
@@ -47,6 +54,20 @@ extern "C" {
     ) -> sgx_status_t;
 
     /// Trigger a query method in a wasm contract
+    pub fn ecall_query_qe(
+        eid: sgx_enclave_id_t,
+        retval: *mut QueryResult,
+        context: Ctx,
+        gas_limit: u64,
+        used_gas: *mut u64,
+        contract: *const u8,
+        contract_len: usize,
+        env: *const u8,
+        env_len: usize,
+        msg: *const u8,
+        msg_len: usize,
+    ) -> sgx_status_t;
+
     pub fn ecall_query(
         eid: sgx_enclave_id_t,
         retval: *mut QueryResult,

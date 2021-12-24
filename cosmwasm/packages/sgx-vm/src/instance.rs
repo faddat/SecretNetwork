@@ -37,7 +37,7 @@ use crate::memory::{get_memory_info, read_region, write_region};
 */
 use crate::traits::{Api, Extern, Querier, Storage};
 
-use crate::enclave::get_enclave;
+use crate::enclave::{get_enclave, get_query_enclave};
 use crate::wasmi::Module;
 
 /*
@@ -90,10 +90,15 @@ where
         let enclave = get_enclave()
             .map_err(EnclaveError::sdk_err)?
             .ok_or(EnclaveError::EnclaveBusy {})?;
+        let query_enclave = get_query_enclave()
+            .map_err(EnclaveError::sdk_err)?
+            .ok_or(EnclaveError::EnclaveBusy {})?;
+
         let module = Module::<S, Q>::new(
             code.to_vec(),
             gas_limit,
             enclave,
+            query_enclave,
             setup_context::<S, Q>(gas_limit),
         );
         Ok(Instance::from_wasmer(module, deps, gas_limit))

@@ -34,11 +34,13 @@ impl ModuleImportResolver for WasmiImportResolver {
                 Signature::new(&[ValueType::I32][..], Some(ValueType::I32)),
                 HostFunctions::ReadDbIndex.into(),
             ),
+            #[cfg(not(feature = "query-only"))]
             // fn write_db(key: *const c_void, value: *mut c_void);
             "db_write" => FuncInstance::alloc_host(
                 Signature::new(&[ValueType::I32, ValueType::I32][..], None),
                 HostFunctions::WriteDbIndex.into(),
             ),
+            #[cfg(not(feature = "query-only"))]
             // fn db_remove(key: *const c_void, value: *mut c_void) -> i32;
             "db_remove" => FuncInstance::alloc_host(
                 Signature::new(&[ValueType::I32][..], None),

@@ -3,7 +3,7 @@ use enclave_ffi_types::{
 };
 use sgx_types::sgx_status_t;
 
-use super::ocalls::ocall_allocate;
+use super::ocalls::ocall_allocate_qe;
 use crate::types::{HandleSuccess, InitSuccess, QuerySuccess};
 
 pub fn result_init_success_to_initresult(result: Result<InitSuccess, EnclaveError>) -> InitResult {
@@ -14,7 +14,7 @@ pub fn result_init_success_to_initresult(result: Result<InitSuccess, EnclaveErro
         }) => {
             let user_buffer = unsafe {
                 let mut user_buffer = std::mem::MaybeUninit::<UserSpaceBuffer>::uninit();
-                match ocall_allocate(user_buffer.as_mut_ptr(), output.as_ptr(), output.len()) {
+                match ocall_allocate_qe(user_buffer.as_mut_ptr(), output.as_ptr(), output.len()) {
                     sgx_status_t::SGX_SUCCESS => { /* continue */ }
                     _ => {
                         return InitResult::Failure {
@@ -42,7 +42,7 @@ pub fn result_handle_success_to_handleresult(
         Ok(HandleSuccess { output }) => {
             let user_buffer = unsafe {
                 let mut user_buffer = std::mem::MaybeUninit::<UserSpaceBuffer>::uninit();
-                match ocall_allocate(user_buffer.as_mut_ptr(), output.as_ptr(), output.len()) {
+                match ocall_allocate_qe(user_buffer.as_mut_ptr(), output.as_ptr(), output.len()) {
                     sgx_status_t::SGX_SUCCESS => { /* continue */ }
                     _ => {
                         return HandleResult::Failure {
@@ -69,7 +69,7 @@ pub fn result_query_success_to_queryresult(
         Ok(QuerySuccess { output }) => {
             let user_buffer = unsafe {
                 let mut user_buffer = std::mem::MaybeUninit::<UserSpaceBuffer>::uninit();
-                match ocall_allocate(user_buffer.as_mut_ptr(), output.as_ptr(), output.len()) {
+                match ocall_allocate_qe(user_buffer.as_mut_ptr(), output.as_ptr(), output.len()) {
                     sgx_status_t::SGX_SUCCESS => { /* continue */ }
                     _ => {
                         return QueryResult::Failure {

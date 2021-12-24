@@ -18,7 +18,7 @@ use crate::wasm::{create_builder, WasmiImportResolver};
 
 lazy_static! {
     static ref MODULE_CACHE: SgxRwLock<LruCache<[u8; HASH_SIZE], wasmi::Module>> =
-        SgxRwLock::new(LruCache::new(0));
+        SgxRwLock::new(LruCache::new(10));
 }
 
 pub fn configure_module_cache(cap: usize) {

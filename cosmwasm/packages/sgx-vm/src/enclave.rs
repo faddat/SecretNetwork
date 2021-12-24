@@ -17,6 +17,7 @@ use parking_lot::{Mutex, ReentrantMutex, ReentrantMutexGuard};
 use crate::wasmi::imports;
 
 static ENCLAVE_FILE: &str = "librust_cosmwasm_enclave.signed.so";
+static QUERY_ENCLAVE_FILE: &str = "librust_cosmwasm_query_enclave.signed.so";
 
 #[cfg(feature = "production")]
 const ENCLAVE_DEBUG: i32 = 0;
@@ -29,8 +30,8 @@ struct EnclaveMutex {
 }
 
 impl EnclaveMutex {
-    fn new() -> SgxResult<EnclaveMutex> {
-        let enclave = ReentrantMutex::new(init_enclave()?);
+    fn new(enclave_path: &str) -> SgxResult<EnclaveMutex> {
+        let enclave = ReentrantMutex::new(init_enclave(enclave_path)?);
         Ok(Self { enclave })
     }
 
@@ -52,7 +53,7 @@ impl Deref for EnclaveGuard {
     }
 }
 
-fn init_enclave() -> SgxResult<SgxEnclave> {
+fn init_enclave(enclave_path: &str) -> SgxResult<SgxEnclave> {
     let mut launch_token: sgx_launch_token_t = [0; 1024];
     let mut launch_token_updated: i32 = 0;
     // call sgx_create_enclave to initialize an enclave instance
@@ -75,7 +76,7 @@ fn init_enclave() -> SgxResult<SgxEnclave> {
         "/usr/local/lib",
     ];
     for dir in dirs.iter() {
-        let candidate = Path::new(dir).join(ENCLAVE_FILE);
+        let candidate = Path::new(dir).join(enclave_path);
         trace!("Looking for the enclave file in {:?}", candidate.to_str());
         if candidate.exists() {
             enclave_file_path = Some(candidate);
@@ -86,7 +87,7 @@ fn init_enclave() -> SgxResult<SgxEnclave> {
     let enclave_file_path = enclave_file_path.ok_or_else(|| {
         warn!(
             "Cannot find the enclave file. Try pointing the SCRT_ENCLAVE_DIR environment variable to the directory that has {:?}",
-            ENCLAVE_FILE
+            enclave_path
         );
         sgx_status_t::SGX_ERROR_INVALID_ENCLAVE
     })?;
@@ -102,10 +103,11 @@ fn init_enclave() -> SgxResult<SgxEnclave> {
 
 #[allow(clippy::mutex_atomic)]
 lazy_static! {
-    static ref SGX_ENCLAVE_MUTEX: SgxResult<EnclaveMutex> = EnclaveMutex::new();
-
+    static ref SGX_ENCLAVE_MUTEX: SgxResult<EnclaveMutex> = EnclaveMutex::new(ENCLAVE_FILE);
+    static ref SGX_QUERY_ENCLAVE_MUTEX: SgxResult<EnclaveMutex> = EnclaveMutex::new(QUERY_ENCLAVE_FILE);
     /// This variable indicates if the enclave configuration has already been set
     static ref SGX_ENCLAVE_CONFIGURED: Mutex<bool> = Mutex::new(false);
+    static ref SGX_QUERY_ENCLAVE_CONFIGURED: Mutex<bool> = Mutex::new(false);
 }
 
 /// This const determines how many seconds we wait when trying to get access to the enclave
@@ -118,6 +120,12 @@ const ENCLAVE_LOCK_TIMEOUT: u64 = 6;
 /// If `Ok(None)` is returned, that means that the enclave is currently busy.
 pub fn get_enclave() -> SgxResult<Option<EnclaveGuard>> {
     let mutex = SGX_ENCLAVE_MUTEX.as_ref().map_err(|status| *status)?;
+    let maybe_guard = mutex.get_enclave(Duration::from_secs(ENCLAVE_LOCK_TIMEOUT));
+    Ok(maybe_guard)
+}
+
+pub fn get_query_enclave() -> SgxResult<Option<EnclaveGuard>> {
+    let mutex = SGX_QUERY_ENCLAVE_MUTEX.as_ref().map_err(|status| *status)?;
     let maybe_guard = mutex.get_enclave(Duration::from_secs(ENCLAVE_LOCK_TIMEOUT));
     Ok(maybe_guard)
 }
@@ -150,6 +158,8 @@ pub fn configure_enclave(config: EnclaveRuntimeConfig) -> SgxResult<()> {
     *configured = true;
     drop(configured);
 
+    // let query_enclave = get_query_enclave()?
+    //     .expect("This function should only be called once when the node is initializing");
     let enclave = get_enclave()?
         .expect("This function should only be called once when the node is initializing");
 
@@ -165,6 +175,18 @@ pub fn configure_enclave(config: EnclaveRuntimeConfig) -> SgxResult<()> {
     if retval != sgx_status_t::SGX_SUCCESS {
         return Err(retval);
     }
+
+    // let status = unsafe {
+    //     ecall_configure_runtime(query_enclave.geteid(), &mut retval, config.to_ffi_type())
+    // };
+    //
+    // if status != sgx_status_t::SGX_SUCCESS {
+    //     return Err(status);
+    // }
+    //
+    // if retval != sgx_status_t::SGX_SUCCESS {
+    //     return Err(retval);
+    // }
 
     Ok(())
 }
@@ -191,6 +213,29 @@ pub(super) fn allocate_enclave_buffer(buffer: &[u8]) -> SgxResult<EnclaveBuffer>
     );
 
     match unsafe { imports::ecall_allocate(enclave_id, &mut enclave_buffer, ptr, len) } {
+        sgx_status_t::SGX_SUCCESS => Ok(enclave_buffer),
+        failure_status => Err(failure_status),
+    }
+}
+
+pub(super) fn allocate_enclave_buffer_qe(buffer: &[u8]) -> SgxResult<EnclaveBuffer> {
+    let ptr = buffer.as_ptr();
+    let len = buffer.len();
+    let mut enclave_buffer = EnclaveBuffer::default();
+
+    let enclave_id = get_query_enclave()
+        .expect("If we got here, surely the enclave has been loaded")
+        .expect("If we got here, surely we are the thread that holds the enclave")
+        .geteid();
+
+    trace!(
+        target: module_path!(),
+        "allocate_enclave_buffer() called with len: {:?} enclave_id: {:?}",
+        len,
+        enclave_id,
+    );
+
+    match unsafe { imports::ecall_allocate_qe(enclave_id, &mut enclave_buffer, ptr, len) } {
         sgx_status_t::SGX_SUCCESS => Ok(enclave_buffer),
         failure_status => Err(failure_status),
     }

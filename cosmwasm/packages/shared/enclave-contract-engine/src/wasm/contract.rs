@@ -4,12 +4,16 @@ use wasmi::{Error as InterpreterError, MemoryInstance, MemoryRef, ModuleRef, Run
 
 use enclave_ffi_types::Ctx;
 
-use crate::consts::BECH32_PREFIX_ACC_ADDR;
 use crate::contract_validation::ContractKey;
-use crate::db::{read_encrypted_key, remove_encrypted_key, write_encrypted_key};
+use crate::db::read_encrypted_key;
+
+#[cfg(not(feature = "query-only"))]
+use create::db::{remove_encrypted_key, write_encrypted_key};
+
 use crate::errors::WasmEngineError;
 use crate::wasm::traits::WasmiApi;
 use crate::{gas::WasmCosts, query_chain::encrypt_and_query_chain, types::IoNonce};
+use enclave_cosmwasm_types::consts::BECH32_PREFIX_ACC_ADDR;
 use enclave_crypto::Ed25519PublicKey;
 
 pub enum ContractOperation {
@@ -290,6 +294,7 @@ impl WasmiApi for ContractInstance {
     /// 1. "key" to delete from Tendermint (buffer of bytes)
     /// key is a pointer to a region "struct" of "pointer" and "length"
     /// A Region looks like { ptr: u32, len: u32 }
+    #[cfg(not(feature = "query-only"))]
     fn remove_db_index(&mut self, state_key_ptr_ptr: i32) -> Result<Option<RuntimeValue>, Trap> {
         if self.operation.is_query() {
             return Err(WasmEngineError::UnauthorizedWrite.into());
@@ -319,6 +324,7 @@ impl WasmiApi for ContractInstance {
     /// 2. "value" to write to Tendermint (buffer of bytes)
     /// Both of them are pointers to a region "struct" of "pointer" and "length"
     /// Lets say Region looks like { ptr: u32, len: u32 }
+    #[cfg(not(feature = "query-only"))]
     fn write_db_index(
         &mut self,
         state_key_ptr_ptr: i32,

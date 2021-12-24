@@ -7,12 +7,11 @@ use serde::{Deserialize, Serialize};
 use crate::multisig::MultisigThresholdPubKey;
 
 use enclave_crypto::{
-    hash::sha::HASH_SIZE, secp256k1::Secp256k1PubKey, sha_256, traits::VerifyingKey, AESKey,
-    CryptoError, Ed25519PublicKey, SIVEncryptable,
+    hash::sha::HASH_SIZE, secp256k1::Secp256k1PubKey, sha_256, traits::VerifyingKey,
+    CryptoError,
 };
 
 use cosmwasm_proto::proto;
-use cosmwasm_proto::proto::crypto::multisig::keys::LegacyAminoPubKey;
 
 use enclave_cosmwasm_types::{
     coins::Coin,
@@ -37,13 +36,19 @@ pub struct ContractCode<'code> {
     hash: [u8; HASH_SIZE],
 }
 
+impl CosmosAddress {
+    pub fn to_canonical(&self) -> CanonicalAddr {
+        CanonicalAddr(Binary(self.0.clone()))
+    }
+}
+
 impl PartialEq<CanonicalAddr> for CosmosAddress {
     fn eq(&self, other: &CanonicalAddr) -> bool {
-        other.0.0 == CosmosAddress.0
+        other.0.0 == self.0
     }
 
     fn ne(&self, other: &CanonicalAddr) -> bool {
-        other.0.0 != CosmosAddress.0
+        other.0.0 != self.0
     }
 }
 
@@ -88,8 +93,8 @@ impl CosmosPubKey {
     }
 
     fn secp256k1_from_proto(public_key_bytes: &[u8]) -> Result<Self, CryptoError> {
-        use proto::crypto::secp256k1::PubKey;
-        let pub_key = VerifyingKey::parse_from_bytes(public_key_bytes).map_err(|_err| {
+        use cosmwasm_proto::proto::crypto::secp256k1::keys::PubKey;
+        let pub_key = PubKey::parse_from_bytes(public_key_bytes).map_err(|_err| {
             warn!(
                 "Could not parse secp256k1 public key from these bytes: {}",
                 Binary(public_key_bytes.to_vec())
@@ -100,7 +105,7 @@ impl CosmosPubKey {
     }
 
     fn multisig_legacy_amino_from_proto(public_key_bytes: &[u8]) -> Result<Self, CryptoError> {
-        use proto::crypto::multisig::LegacyAminoPubKey;
+        use cosmwasm_proto::proto::crypto::multisig::keys::LegacyAminoPubKey;
         let multisig_key =
             LegacyAminoPubKey::parse_from_bytes(public_key_bytes).map_err(|_err| {
                 warn!(

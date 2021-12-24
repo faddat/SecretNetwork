@@ -1,5 +1,5 @@
 use super::io::calc_encryption_key;
-use enclave_crypto::{Ed25519PublicKey, SIVEncryptable};
+use enclave_crypto::{AESKey, Ed25519PublicKey, SIVEncryptable};
 use enclave_ffi_types::EnclaveError;
 use log::*;
 use serde::{Deserialize, Serialize};

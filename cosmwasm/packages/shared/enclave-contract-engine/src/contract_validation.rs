@@ -185,7 +185,7 @@ pub fn verify_params(
 
     trace!(
         "sender canonical address is: {:?}",
-        sender_public_key.get_address().0.0
+        sender_public_key.get_address().0
     );
     trace!("sender signature is: {:?}", sig_info.signature);
     trace!("sign bytes are: {:?}", sig_info.sign_bytes);
@@ -214,7 +214,7 @@ fn get_signer_and_messages(
     sign_info: &SigInfo,
     env: &Env,
 ) -> Result<(CosmosPubKey, Vec<CosmWasmMsg>), EnclaveError> {
-    use crate::proto::tx::signing::SignMode::*;
+    use cosmwasm_proto::proto::tx::signing::SignMode::*;
     match sign_info.sign_mode {
         SIGN_MODE_DIRECT => {
             let sign_doc = SignDoc::from_bytes(sign_info.sign_bytes.as_slice())?;
@@ -409,12 +409,14 @@ fn verify_message_params(
     }
     let msg = msg.unwrap();
 
-    if msg.sender() != Some(&signer_addr) {
-        warn!(
-            "message signer did not match cosmwasm message sender: {:?} {:?}",
-            signer_addr, msg
-        );
-        return false;
+    if let Some(sender) = msg.sender() {
+        if sender != &signer_addr.to_canonical() {
+            warn!(
+                "message signer did not match cosmwasm message sender: {:?} {:?}",
+                signer_addr, msg
+            );
+            return false;
+        }
     }
 
     if !verify_contract(msg, env) {

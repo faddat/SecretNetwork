@@ -30,7 +30,7 @@ lazy_static! {
 /// # Safety
 /// Always use protection
 #[no_mangle]
-pub unsafe extern "C" fn ecall_allocate(buffer: *const u8, length: usize) -> EnclaveBuffer {
+pub unsafe extern "C" fn ecall_allocate_qe(buffer: *const u8, length: usize) -> EnclaveBuffer {
     if let Err(_err) = oom_handler::register_oom_handler() {
         error!("Could not register OOM handler!");
         return EnclaveBuffer::default();
@@ -76,12 +76,13 @@ pub struct BufferRecoveryError;
 /// # Safety
 /// Always use protection
 #[no_mangle]
+#[cfg(not(feature = "query-only"))]
 pub unsafe extern "C" fn ecall_configure_runtime(config: RuntimeConfiguration) -> sgx_status_t {
     debug!(
         "inside ecall_configure_runtime: {}",
         config.module_cache_size
     );
-    crate::wasm::module_cache::configure_module_cache(config.module_cache_size as usize);
+    crate::module_cache::configure_module_cache(config.module_cache_size as usize);
     sgx_status_t::SGX_SUCCESS
 }
 
@@ -114,6 +115,7 @@ pub unsafe fn recover_buffer(ptr: EnclaveBuffer) -> Result<Option<Vec<u8>>, Buff
 
 /// # Safety
 /// Always use protection
+#[cfg(not(feature = "query-only"))]
 #[no_mangle]
 pub unsafe extern "C" fn ecall_init(
     context: Ctx,
@@ -159,7 +161,7 @@ pub unsafe extern "C" fn ecall_init(
     let sig_info = std::slice::from_raw_parts(sig_info, sig_info_len);
     let result = panic::catch_unwind(|| {
         let mut local_used_gas = *used_gas;
-        let result = crate::wasm::init(
+        let result = crate::init(
             context,
             gas_limit,
             &mut local_used_gas,
@@ -198,6 +200,7 @@ pub unsafe extern "C" fn ecall_init(
 
 /// # Safety
 /// Always use protection
+#[cfg(not(feature = "query-only"))]
 #[no_mangle]
 pub unsafe extern "C" fn ecall_handle(
     context: Ctx,
@@ -244,7 +247,7 @@ pub unsafe extern "C" fn ecall_handle(
     let sig_info = std::slice::from_raw_parts(sig_info, sig_info_len);
     let result = panic::catch_unwind(|| {
         let mut local_used_gas = *used_gas;
-        let result = crate::wasm::handle(
+        let result = crate::handle(
             context,
             gas_limit,
             &mut local_used_gas,
@@ -284,7 +287,7 @@ pub unsafe extern "C" fn ecall_handle(
 /// # Safety
 /// Always use protection
 #[no_mangle]
-pub unsafe extern "C" fn ecall_query(
+pub unsafe extern "C" fn ecall_query_qe(
     context: Ctx,
     gas_limit: u64,
     used_gas: *mut u64,
@@ -324,8 +327,7 @@ pub unsafe extern "C" fn ecall_query(
     let msg = std::slice::from_raw_parts(msg, msg_len);
     let result = panic::catch_unwind(|| {
         let mut local_used_gas = *used_gas;
-        let result =
-            crate::wasm::query(context, gas_limit, &mut local_used_gas, contract, env, msg);
+        let result = crate::query(context, gas_limit, &mut local_used_gas, contract, env, msg);
         *used_gas = local_used_gas;
         result_query_success_to_queryresult(result)
     });
